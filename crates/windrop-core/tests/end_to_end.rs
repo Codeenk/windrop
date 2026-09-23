@@ -89,36 +89,38 @@ fn split_exec(value: &str) -> Vec<String> {
 ///   exits non-zero, which is how a failing variant is simulated.
 const MOCK_WINE: &str = r#"#!/bin/sh
 if [ "$1" = "--version" ]; then
-  echo "wine-9.0 (WinDrop mock build)"
+  printf '%s\n' "wine-9.0 (WinDrop mock build)"
   exit 0
 fi
 if [ "$1" = "wineboot" ]; then
   mkdir -p "$WINEPREFIX/drive_c/users/test"
-  echo "WINE REGISTRY Version 2" > "$WINEPREFIX/system.reg"
-  echo "wineboot" >> "$WINEPREFIX/../../trace.log"
+  printf '%s\n' "WINE REGISTRY Version 2" > "$WINEPREFIX/system.reg"
+  printf '%s\n' "wineboot" >> "$WINEPREFIX/../../trace.log"
   exit 0
 fi
 case "$1" in
   Z:*)
     # Every argument, not just the program: the silent flags a profile supplies
     # are the whole point of testing this path.
-    echo "installer $*" >> "$WINEPREFIX/../../trace.log"
+    # NB: `printf`, not `echo` — Ubuntu's dash interprets backslash escapes in
+    # `echo`, turning `Z:\tmp\...` into `Z:<TAB>mp...` and breaking assertions.
+    printf 'installer %s\n' "$*" >> "$WINEPREFIX/../../trace.log"
     if [ -n "$WINDROP_TEST_INSTALLER_FAILS" ]; then
-      echo "simulated installer failure" >&2
+      printf '%s\n' "simulated installer failure" >&2
       exit 1
     fi
     mkdir -p "$WINEPREFIX/drive_c/Program Files/TestApp"
     mkdir -p "$WINEPREFIX/drive_c/Program Files/TestApp/resources"
     cat "$WINDROP_TEST_PAYLOAD" > "$WINEPREFIX/drive_c/Program Files/TestApp/testapp.exe"
     cat "$WINDROP_TEST_PAYLOAD" > "$WINEPREFIX/drive_c/Program Files/TestApp/unins000.exe"
-    echo "installed" > "$WINEPREFIX/drive_c/Program Files/TestApp/readme.txt"
+    printf '%s\n' "installed" > "$WINEPREFIX/drive_c/Program Files/TestApp/readme.txt"
     exit 0
     ;;
   *)
     # Written two levels up, i.e. into the applications directory: one level up
     # is the application's own directory, which removal deletes.
-    echo "launched $1" >> "$WINEPREFIX/../../launch.log"
-    echo "launch $1" >> "$WINEPREFIX/../../trace.log"
+    printf 'launched %s\n' "$1" >> "$WINEPREFIX/../../launch.log"
+    printf 'launch %s\n' "$1" >> "$WINEPREFIX/../../trace.log"
     exit 0
     ;;
 esac
@@ -128,8 +130,8 @@ esac
 const MOCK_WINETRICKS: &str = r#"#!/bin/sh
 for arg in "$@"; do
   case "$arg" in -q) continue ;; esac
-  echo "$arg" >> "$WINEPREFIX/winetricks.log"
-  echo "winetricks:$arg" >> "$WINEPREFIX/../../trace.log"
+  printf '%s\n' "$arg" >> "$WINEPREFIX/winetricks.log"
+  printf 'winetricks:%s\n' "$arg" >> "$WINEPREFIX/../../trace.log"
 done
 exit 0
 "#;
@@ -164,6 +166,11 @@ fn write_executable(path: &Path, body: &str) {
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(path, body).unwrap();
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    // Flush the writer's pages before the file is executed: on overlayfs the
+    // close alone can leave a freshly written script briefly busy (ETXTBSY).
+    if let Ok(file) = std::fs::File::open(path) {
+        let _ = file.sync_all();
+    }
 }
 
 /// A complete WinDrop installation backed by mock tools.

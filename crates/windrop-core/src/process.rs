@@ -172,13 +172,28 @@ impl CommandSpec {
         cmd.stdin(Stdio::null()).stdout(stdout).stderr(stderr);
         isolate_process_group(&mut cmd);
         tracing::debug!(command = %self.display(), "spawning");
-        cmd.spawn().map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                Error::ToolMissing(self.program.to_string_lossy().to_string())
-            } else {
-                Error::Io(e)
+        // A script that was written moments ago may still be busy on
+        // overlayfs-backed CI runners (ETXTBSY/"Text file busy") when the
+        // writer's close has not fully landed. Retry briefly rather than
+        // failing a run that would succeed a few milliseconds later.
+        let mut attempts = 0;
+        loop {
+            match cmd.spawn() {
+                Ok(child) => return Ok(child),
+                Err(e) if e.raw_os_error() == Some(libc::ETXTBSY) && attempts < 10 => {
+                    attempts += 1;
+                    std::thread::sleep(Duration::from_millis(20 * attempts as u64));
+                    continue;
+                }
+                Err(e) => {
+                    return Err(if e.kind() == std::io::ErrorKind::NotFound {
+                        Error::ToolMissing(self.program.to_string_lossy().to_string())
+                    } else {
+                        Error::Io(e)
+                    });
+                }
             }
-        })
+        }
     }
 
     /// Run a short-lived command, capturing stdout and stderr, with a timeout.

@@ -33,12 +33,12 @@ use windrop_core::fixtures::{self, PeSpec};
 /// Reading it back is `Sandbox::trace`, which reassembles the pieces.
 const MOCK_WINE: &str = r#"#!/bin/sh
 if [ "$1" = "--version" ]; then
-  echo "wine-9.0 (WinDrop mock build)"
+  printf '%s\n' "wine-9.0 (WinDrop mock build)"
   exit 0
 fi
 if [ "$1" = "wineboot" ]; then
   mkdir -p "$WINEPREFIX/drive_c/users/test"
-  echo "WINE REGISTRY Version 2" > "$WINEPREFIX/system.reg"
+  printf '%s\n' "WINE REGISTRY Version 2" > "$WINEPREFIX/system.reg"
   mkdir -p "$WINEPREFIX"
   printf 'wineboot\n' >> "$WINEPREFIX/trace.log"
   exit 0

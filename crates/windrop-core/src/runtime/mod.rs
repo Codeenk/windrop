@@ -509,15 +509,15 @@ mod tests {
     const FAKE_WINE: &str = r#"#!/bin/sh
 set -e
 case "$1" in
-  --version) echo "wine-9.0 (WinDrop test build)"; exit 0 ;;
+  --version) printf '%s\n' "wine-9.0 (WinDrop test build)"; exit 0 ;;
 esac
 if [ "$1" = "wineboot" ]; then
   mkdir -p "$WINEPREFIX/drive_c/users/test"
-  echo "WINE REGISTRY Version 2" > "$WINEPREFIX/system.reg"
-  echo "wineboot $*" >> "$WINEPREFIX/../../trace.log"
+  printf '%s\n' "WINE REGISTRY Version 2" > "$WINEPREFIX/system.reg"
+  printf 'wineboot %s\n' "$*" >> "$WINEPREFIX/../../trace.log"
   exit 0
 fi
-echo "wine $*" >> "$WINEPREFIX/../../trace.log"
+printf 'wine %s\n' "$*" >> "$WINEPREFIX/../../trace.log"
 exit 0
 "#;
 
@@ -525,10 +525,10 @@ exit 0
     const FAKE_WINETRICKS: &str = r#"#!/bin/sh
 for arg in "$@"; do
   [ "$arg" = "-q" ] && continue
-  echo "$arg" >> "$WINEPREFIX/winetricks.log"
-  echo "$arg" >> "$WINEPREFIX/../../trace.log"
+  printf '%s\n' "$arg" >> "$WINEPREFIX/winetricks.log"
+  printf '%s\n' "$arg" >> "$WINEPREFIX/../../trace.log"
 done
-echo "prefix=$WINEPREFIX wine=$WINE" >> "$WINEPREFIX/../../trace.log"
+printf 'prefix=%s wine=%s\n' "$WINEPREFIX" "$WINE" >> "$WINEPREFIX/../../trace.log"
 exit 0
 "#;
 

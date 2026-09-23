@@ -343,9 +343,11 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let path = dir.join(relative);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        // NB: `printf`, not `echo` — dash (Ubuntu's /bin/sh) interprets
+        // backslash escapes in `echo`.
         std::fs::write(
             &path,
-            format!("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo '{version_line}'; exit 0; fi\nexit 1\n"),
+            format!("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then printf '%s\\n' '{version_line}'; exit 0; fi\nexit 1\n"),
         )
         .unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
