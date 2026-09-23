@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/windrop-core", "crates/windrop-cli", "crates/windrop-gui"]
 
 [workspace.package]
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 # The floor is set by the dependencies, not by choice: the idna/ICU stack that
 # `reqwest` pulls in needs 1.88. Declaring it accurately means an old toolchain

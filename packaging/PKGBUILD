@@ -11,11 +11,11 @@
 # a Wine already installed elsewhere should not be forced into the dependency.
 
 pkgname=windrop
-pkgver=0.5.0
+pkgver=0.6.0
 pkgrel=1
 pkgdesc="Run Windows programs in their own private environment, with one-click install and removal"
 arch=('x86_64' 'aarch64')
-url="https://github.com/windrop/windrop"
+url="https://github.com/Codeenk/windrop"
 license=('GPL-3.0-or-later')
 depends=(
   'glib2'
@@ -38,7 +38,7 @@ provides=('windrop')
 conflicts=('windrop-git')
 backup=()
 options=('!lto')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/windrop/windrop/archive/v$pkgver.tar.gz")
+source=("$pkgname-$pkgver.tar.gz::https://github.com/Codeenk/windrop/archive/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 
 prepare() {
