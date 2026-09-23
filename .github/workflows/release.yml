@@ -142,8 +142,15 @@ jobs:
         run: |
           tag="${GITHUB_REF_NAME}"
           [[ -n "$tag" ]] || tag="v$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          # download-artifact preserves the uploaded directory layout, so the
+          # files land in per-artifact subdirectories (e.g. artifacts/aur/dist
+          # and artifacts/aur/packaging). Collect regular files explicitly:
+          # globbing the artifact roots would hand `gh` directories, which it
+          # refuses to upload.
+          mapfile -t files < <(find artifacts -type f | sort)
+          echo "attaching ${#files[@]} file(s):"
+          printf '  %s\n' "${files[@]}"
           gh release create "$tag" \
             --title "WinDrop ${tag#v}" \
             --notes-file notes.md \
-            artifacts/appimage/*.AppImage \
-            artifacts/aur/*
+            "${files[@]}"
