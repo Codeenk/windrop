@@ -1,0 +1,29 @@
+[package]
+name = "windrop-core"
+description = "Core library for WinDrop: PE inspection, compatibility profiles, Wine prefix lifecycle"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+goblin.workspace = true
+rusqlite.workspace = true
+sha2.workspace = true
+hex.workspace = true
+walkdir.workspace = true
+tar.workspace = true
+flate2.workspace = true
+reqwest.workspace = true
+libc.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

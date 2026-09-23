@@ -1,0 +1,91 @@
+# Maintainer: The WinDrop Contributors <windrop@example.org>
+#
+# WinDrop ships two binaries from one workspace: `windrop` (the command line, and
+# what every menu entry it writes calls back into) and `windrop-gui` (the window).
+# Both are installed, because a menu entry that cannot run without a graphical
+# session is worth avoiding.
+#
+# Nothing here installs Wine, winetricks or the icon tools: WinDrop treats them
+# as optional, detects what is missing, and tells the user what to install. They
+# are therefore optdepends rather than depends — a user who only wants to manage
+# a Wine already installed elsewhere should not be forced into the dependency.
+
+pkgname=windrop
+pkgver=0.5.0
+pkgrel=1
+pkgdesc="Run Windows programs in their own private environment, with one-click install and removal"
+arch=('x86_64' 'aarch64')
+url="https://github.com/windrop/windrop"
+license=('GPL-3.0-or-later')
+depends=(
+  'glib2'
+  'gtk4'
+  # rusqlite is built with the bundled SQLite so the profile database is
+  # self-contained, but the C library still comes from here at runtime.
+  'gcc-libs'
+  'hicolor-icon-theme'
+)
+makedepends=('cargo' 'rust' 'pkgconf')
+optdepends=(
+  'wine: run Windows programs (or let WinDrop download a managed build)'
+  'winetricks: install the Windows runtimes an application asks for'
+  'bubblewrap: isolate each program from the rest of your home directory'
+  'icoutils: extract an application icon from the .exe itself'
+  'cabextract: unpack Microsoft cabinet files, needed by winetricks'
+  'desktop-file-utils: refresh the menu database as applications are added'
+)
+provides=('windrop')
+conflicts=('windrop-git')
+backup=()
+options=('!lto')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/windrop/windrop/archive/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  # Fetch now, while the network is available, so the build itself can run
+  # offline and — more importantly — so a change in Cargo.lock cannot silently
+  # pull a different dependency than the one this PKGBUILD was tested with.
+  export CARGO_HOME="$srcdir/cargo"
+  cargo fetch --locked
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  export CARGO_HOME="$srcdir/cargo"
+  export RUSTFLAGS="${RUSTFLAGS:-} -C target-cpu=x86-64-v2"
+  cargo build --release --frozen --offline
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  export CARGO_HOME="$srcdir/cargo"
+  # The suite is self-contained: it fabricates Windows executables and runs the
+  # whole pipeline against a mock Wine, so it needs neither Wine nor a display.
+  cargo test --release --frozen --offline
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+
+  install -Dm755 target/release/windrop     "$pkgdir/usr/bin/windrop"
+  install -Dm755 target/release/windrop-gui "$pkgdir/usr/bin/windrop-gui"
+
+  install -Dm644 data/org.windrop.WinDrop.desktop \
+    "$pkgdir/usr/share/applications/org.windrop.WinDrop.desktop"
+  install -Dm644 data/org.windrop.WinDrop.metainfo.xml \
+    "$pkgdir/usr/share/metainfo/org.windrop.WinDrop.metainfo.xml"
+  install -Dm644 data/icons/hicolor/scalable/apps/windrop.svg \
+    "$pkgdir/usr/share/icons/hicolor/scalable/apps/windrop.svg"
+
+  # The curated profiles are compiled into the binary as well as installed here,
+  # so `windrop profiles seed` works with no package data and no network.
+  install -Dm644 registry/profiles.json \
+    "$pkgdir/usr/share/windrop/profiles.json"
+
+  # No licence file is installed: Arch already provides the canonical GPL-3.0
+  # text in /usr/share/licenses/common/GPL3, which `license=('GPL-3.0-or-later')`
+  # above points at.
+}
+
+# vim:set ts=2 sw=2 et:

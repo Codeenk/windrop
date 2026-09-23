@@ -1,0 +1,74 @@
+name: Share a compatibility profile
+description: You got a program working and want everyone else to have it too
+title: 'Profile: '
+labels: ['profile']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Recipes are the most valuable thing this project collects. A profile is
+        a JSON file describing what one program needs; the format is documented
+        in [docs/profile-format.md](https://github.com/windrop/windrop/blob/main/docs/profile-format.md).
+
+        Two commands produce everything this form asks for:
+
+        ```sh
+        windrop profiles export my-recipe.json --only <profile-id>
+        windrop profiles verify my-recipe.json
+        ```
+
+        `verify` must pass before an issue is worth opening — it runs exactly the
+        checks the application runs at import time.
+
+  - type: input
+    id: program
+    attributes:
+      label: Program and version
+      placeholder: Notepad++ 8.6.4
+    validations:
+      required: true
+
+  - type: input
+    id: installer
+    attributes:
+      label: Installer
+      description: |
+        Where it came from, and which file exactly. If `windrop profiles attach`
+        was used, say so — a pinned digest is what makes a recipe apply to that
+        installer and nothing else.
+      placeholder: https://notepad-plus-plus.org/repository/8.x/8.6.4/npp.8.6.4.Installer.x64.exe
+    validations:
+      required: true
+
+  - type: textarea
+    id: profile
+    attributes:
+      label: The profile
+      description: The contents of the exported JSON file. Attach it instead if it is long.
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: What you checked
+      description: |
+        Which of these actually worked, and what you had to do to get there?
+      value: |
+        - [ ] `windrop profiles verify my-recipe.json` passes
+        - [ ] The program installs from a clean prefix, not just from this machine
+        - [ ] It launches from the menu entry, not only from `windrop launch`
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything a maintainer should know
+      description: |
+        Quirks, workarounds, the reason behind an unusual variant, or anything
+        you tried that did *not* work — knowing what fails is as useful as
+        knowing what works.
+    validations:
+      required: false

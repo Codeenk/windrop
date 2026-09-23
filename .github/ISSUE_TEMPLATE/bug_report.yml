@@ -1,0 +1,61 @@
+name: Something went wrong
+description: A program did not install, did not launch, or WinDrop itself misbehaved
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time. The single most useful thing you can paste
+        is the output of `windrop doctor` — it records the distribution, the
+        kernel, the session type, which Wine was found, which translation layers
+        are installed, and whether bubblewrap is available.
+
+        ```sh
+        windrop doctor
+        ```
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: windrop doctor
+      description: Paste the whole report, not a summary of it.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: The log
+      description: |
+        Run `windrop logs <app> -n 200`, and include the last part of the
+        installer log if the failure happened during installation. Wine is
+        noisy, so trim the parts that are obviously unrelated.
+      render: text
+    validations:
+      required: false
+
+  - type: input
+    id: program
+    attributes:
+      label: Which program
+      description: Name and version. A link to the exact installer is even better.
+    validations:
+      required: false
+
+  - type: textarea
+    id: profile
+    attributes:
+      label: The profile it used
+      description: 'Output of `windrop list`, then `windrop profiles show <profile-id>`.'
+      render: json
+    validations:
+      required: false

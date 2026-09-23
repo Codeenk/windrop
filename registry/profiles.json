@@ -1,0 +1,613 @@
+[
+  {
+    "id": "notepadpp",
+    "name": "Notepad++",
+    "version": "8.x",
+    "hashes": [],
+    "arch": "x86_64",
+    "requirements": {
+      "graphics": null,
+      "dotnet": false,
+      "notes": [
+        "Notepad++ is a plain Win32 application with no Direct3D use",
+        "the 64-bit build runs on any 64-bit Wine"
+      ]
+    },
+    "variants": [
+      {
+        "wine_build": "stable",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": false,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [],
+        "rationale": "Wine stable, Windows 10, no extras needed"
+      },
+      {
+        "wine_build": "staging",
+        "arch": "x86_64",
+        "windows_version": "win7",
+        "dxvk": false,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [],
+        "rationale": "Wine staging reporting Windows 7, for older 8.x releases"
+      }
+    ],
+    "source": "bundled",
+    "installer_args": ["/S"],
+    "main_exe_hint": "Program Files/Notepad++/notepad++.exe",
+    "notes": "Also ship a portable zip; when you drop the installer, WinDrop runs it silently and picks up the result.",
+    "updated_at": "2026-08-15T00:00:00Z"
+  },
+  {
+    "id": "7zip",
+    "name": "7-Zip",
+    "version": "23.x/24.x",
+    "hashes": [],
+    "arch": "x86_64",
+    "requirements": {
+      "graphics": null,
+      "dotnet": false,
+      "notes": ["a self-contained Win32 shell extension and file manager"]
+    },
+    "variants": [
+      {
+        "wine_build": "stable",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": false,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [],
+        "rationale": "Wine stable, Windows 10, no extras needed"
+      }
+    ],
+    "source": "bundled",
+    "installer_args": ["/S"],
+    "main_exe_hint": "Program Files/7-Zip/7zFM.exe",
+    "notes": "The shell integration does nothing on Linux; the file manager and 7zG.exe both work.",
+    "updated_at": "2026-08-15T00:00:00Z"
+  },
+  {
+    "id": "vlc",
+    "name": "VLC media player",
+    "version": "3.0.x",
+    "hashes": [],
+    "arch": "x86_64",
+    "requirements": {
+      "graphics": "d3d9",
+      "dotnet": false,
+      "notes": ["the Windows build renders through Direct3D 9 by default"]
+    },
+    "variants": [
+      {
+        "wine_build": "stable",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": true,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [],
+        "rationale": "Wine stable with DXVK for the Direct3D 9 video output"
+      },
+      {
+        "wine_build": "stable",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": false,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [],
+        "rationale": "Wine's own Direct3D without DXVK, for older GPU drivers"
+      }
+    ],
+    "source": "bundled",
+    "installer_args": ["/L=1033", "/S"],
+    "main_exe_hint": "Program Files/VideoLAN/VLC/vlc.exe",
+    "notes": "Native Linux VLC is a better choice for playback; this profile exists for playlists and skins that only the Windows build understands.",
+    "updated_at": "2026-08-15T00:00:00Z"
+  },
+  {
+    "id": "firefox-windows",
+    "name": "Mozilla Firefox (Windows build)",
+    "version": "115 ESR and later",
+    "hashes": [],
+    "arch": "x86_64",
+    "requirements": {
+      "graphics": "d3d11",
+      "dotnet": false,
+      "notes": ["a WebRender browser: it wants a working Direct3D 11 path"]
+    },
+    "variants": [
+      {
+        "wine_build": "staging",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": true,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [{"verb": "corefonts", "reason": "browsers expect the Microsoft core font set", "optional": true}],
+        "rationale": "Wine staging with DXVK, which is the combination the browser needs"
+      },
+      {
+        "wine_build": "staging",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": true,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [["MOZ_DISABLE_CONTENT_SANDBOX", "1"], ["MOZ_DISABLE_GPU_SANDBOX", "1"]],
+        "dependencies": [{"verb": "corefonts", "reason": "browsers expect the Microsoft core font set", "optional": true}],
+        "rationale": "Wine staging with the Firefox sandbox disabled, which Wine cannot provide"
+      }
+    ],
+    "source": "bundled",
+    "installer_args": ["-ms"],
+    "main_exe_hint": "Program Files/Mozilla Firefox/firefox.exe",
+    "notes": "The native Linux build of Firefox is faster, sandboxed and secure. Use this only if a website insists on a Windows user agent.",
+    "updated_at": "2026-08-15T00:00:00Z"
+  },
+  {
+    "id": "irfanview",
+    "name": "IrfanView",
+    "version": "4.6x",
+    "hashes": [],
+    "arch": "x86_64",
+    "requirements": {
+      "graphics": null,
+      "dotnet": false,
+      "notes": ["a classic Win32 image viewer"]
+    },
+    "variants": [
+      {
+        "wine_build": "stable",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": false,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [{"verb": "gdiplus", "reason": "IrfanView loads images through GDI+", "optional": false}],
+        "rationale": "Wine stable with a GDI+ implementation"
+      },
+      {
+        "wine_build": "stable",
+        "arch": "x86_64",
+        "windows_version": "win7",
+        "dxvk": false,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [{"verb": "gdiplus", "reason": "IrfanView loads images through GDI+", "optional": false}],
+        "rationale": "Wine stable reporting Windows 7, for the 32-bit build"
+      }
+    ],
+    "source": "bundled",
+    "installer_args": ["/silent"],
+    "main_exe_hint": "Program Files/IrfanView/i_view64.exe",
+    "notes": "Install the plugins package separately; IrfanView cannot open some formats without it.",
+    "updated_at": "2026-08-15T00:00:00Z"
+  },
+  {
+    "id": "winrar",
+    "name": "WinRAR",
+    "version": "6.x/7.x",
+    "hashes": [],
+    "arch": "x86_64",
+    "requirements": {
+      "graphics": null,
+      "dotnet": false,
+      "notes": ["the archive manager only; the shell extension is a no-op on Linux"]
+    },
+    "variants": [
+      {
+        "wine_build": "stable",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": false,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [],
+        "rationale": "Wine stable, Windows 10, no extras needed"
+      }
+    ],
+    "source": "bundled",
+    "installer_args": ["/S"],
+    "main_exe_hint": "Program Files/WinRAR/WinRAR.exe",
+    "notes": "7-Zip is free and reads the same archives; use this if you need RAR creation or a familiar interface.",
+    "updated_at": "2026-08-15T00:00:00Z"
+  },
+  {
+    "id": "winscp",
+    "name": "WinSCP",
+    "version": "6.x",
+    "hashes": [],
+    "arch": "x86_64",
+    "requirements": {
+      "graphics": null,
+      "dotnet": false,
+      "notes": ["an SFTP and SCP client built for the .NET Framework"]
+    },
+    "variants": [
+      {
+        "wine_build": "stable",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": false,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [{"verb": "dotnet48", "reason": "WinSCP is a .NET application", "optional": false}],
+        "rationale": "Wine stable with the .NET 4.8 runtime"
+      },
+      {
+        "wine_build": "staging",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": false,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [{"verb": "dotnet48", "reason": "WinSCP is a .NET application", "optional": false}],
+        "rationale": "Wine staging, which installs .NET 4.8 more reliably on recent kernels"
+      }
+    ],
+    "source": "bundled",
+    "installer_args": ["/SILENT"],
+    "main_exe_hint": "Program Files (x86)/WinSCP/WinSCP.exe",
+    "notes": "Installing .NET 4.8 takes several minutes and needs a download on first use.",
+    "updated_at": "2026-08-15T00:00:00Z"
+  },
+  {
+    "id": "putty",
+    "name": "PuTTY",
+    "version": "0.7x/0.8x",
+    "hashes": [],
+    "arch": "x86_64",
+    "requirements": {
+      "graphics": null,
+      "dotnet": false,
+      "notes": ["a small Win32 SSH, Telnet and serial client"]
+    },
+    "variants": [
+      {
+        "wine_build": "stable",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": false,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [{"verb": "corefonts", "reason": "the terminal uses a fixed-pitch font that Wine does not ship", "optional": true}],
+        "rationale": "Wine stable with the Microsoft core fonts for a readable terminal"
+      }
+    ],
+    "source": "bundled",
+    "installer_args": ["/S"],
+    "main_exe_hint": "Program Files/PuTTY/putty.exe",
+    "notes": "Consider the native openssh client or a Linux terminal emulator instead; this is here for sessions you cannot recreate.",
+    "updated_at": "2026-08-15T00:00:00Z"
+  },
+  {
+    "id": "sumatrapdf",
+    "name": "SumatraPDF",
+    "version": "3.5.x",
+    "hashes": [],
+    "arch": "x86_64",
+    "requirements": {
+      "graphics": null,
+      "dotnet": false,
+      "notes": ["a lightweight PDF, EPUB and comic reader"]
+    },
+    "variants": [
+      {
+        "wine_build": "stable",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": false,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [],
+        "rationale": "Wine stable, Windows 10, no extras needed"
+      }
+    ],
+    "source": "bundled",
+    "installer_args": ["-silent"],
+    "main_exe_hint": "Program Files/SumatraPDF/SumatraPDF.exe",
+    "notes": "SumatraPDF has no Linux build, so this is one of the few cases where the Windows version is the only option.",
+    "updated_at": "2026-08-15T00:00:00Z"
+  },
+  {
+    "id": "foobar2000",
+    "name": "foobar2000",
+    "version": "2.x",
+    "hashes": [],
+    "arch": "x86_64",
+    "requirements": {
+      "graphics": "d3d9",
+      "dotnet": false,
+      "notes": ["its default user interface draws with Direct2D, which Wine maps onto Direct3D"]
+    },
+    "variants": [
+      {
+        "wine_build": "stable",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": true,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [{"verb": "corefonts", "reason": "its playlist and preferences fonts come from Windows", "optional": true}],
+        "rationale": "Wine stable with DXVK for the Direct2D-based interface"
+      },
+      {
+        "wine_build": "stable",
+        "arch": "x86_64",
+        "windows_version": "win7",
+        "dxvk": true,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [{"verb": "corefonts", "reason": "its playlist and preferences fonts come from Windows", "optional": true}],
+        "rationale": "Wine stable reporting Windows 7, which forces the classic interface"
+      }
+    ],
+    "source": "bundled",
+    "installer_args": ["/S"],
+    "main_exe_hint": "Program Files/foobar2000/foobar2000.exe",
+    "notes": "Audio output goes through Wine's Windows audio layer; if sound stutters, switch WinDrop to the Balanced performance mode.",
+    "updated_at": "2026-08-15T00:00:00Z"
+  },
+  {
+    "id": "qbittorrent",
+    "name": "qBittorrent",
+    "version": "4.x",
+    "hashes": [],
+    "arch": "x86_64",
+    "requirements": {
+      "graphics": null,
+      "dotnet": false,
+      "notes": ["a Qt BitTorrent client that links against the MSVC runtime"]
+    },
+    "variants": [
+      {
+        "wine_build": "stable",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": false,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [{"verb": "vcrun2022", "reason": "the Windows build is linked against the VC++ 2015-2022 runtime", "optional": false}],
+        "rationale": "Wine stable with the Visual C++ runtime"
+      }
+    ],
+    "source": "bundled",
+    "installer_args": ["/S"],
+    "main_exe_hint": "Program Files/qBittorrent/qbittorrent.exe",
+    "notes": "The native Linux build is the recommended choice; this profile is for matching a specific version or plugin set.",
+    "updated_at": "2026-08-15T00:00:00Z"
+  },
+  {
+    "id": "mpc-hc",
+    "name": "MPC-HC",
+    "version": "2.x",
+    "hashes": [],
+    "arch": "x86_64",
+    "requirements": {
+      "graphics": "d3d11",
+      "dotnet": false,
+      "notes": ["a DirectShow player that renders through Direct3D"]
+    },
+    "variants": [
+      {
+        "wine_build": "stable",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": true,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [{"verb": "quartz", "reason": "MPC-HC renders through the DirectShow filter graph", "optional": false}],
+        "rationale": "Wine stable with DXVK and a DirectShow implementation"
+      },
+      {
+        "wine_build": "staging",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": true,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [{"verb": "quartz", "reason": "MPC-HC renders through the DirectShow filter graph", "optional": false}],
+        "rationale": "Wine staging, if the DirectShow graph will not build on the stable branch"
+      }
+    ],
+    "source": "bundled",
+    "installer_args": ["/S"],
+    "main_exe_hint": "Program Files/MPC-HC/mpc-hc64.exe",
+    "notes": "Hardware video decoding does not work through DXVK; software decoding is reliable but uses more CPU.",
+    "updated_at": "2026-08-15T00:00:00Z"
+  },
+  {
+    "id": "audacity",
+    "name": "Audacity",
+    "version": "3.x",
+    "hashes": [],
+    "arch": "x86_64",
+    "requirements": {
+      "graphics": "d3d11",
+      "dotnet": false,
+      "notes": ["recent releases draw with wxWidgets over Direct3D"]
+    },
+    "variants": [
+      {
+        "wine_build": "stable",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": true,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [{"verb": "vcrun2022", "reason": "Audacity links against the VC++ 2015-2022 runtime", "optional": false}],
+        "rationale": "Wine stable with DXVK and the Visual C++ runtime"
+      }
+    ],
+    "source": "bundled",
+    "installer_args": ["/S"],
+    "main_exe_hint": "Program Files/Audacity/Audacity.exe",
+    "notes": "Audio device access goes through Wine and works best with PulseAudio or PipeWire running natively.",
+    "updated_at": "2026-08-15T00:00:00Z"
+  },
+  {
+    "id": "sharex",
+    "name": "ShareX",
+    "version": "16.x",
+    "hashes": [],
+    "arch": "x86_64",
+    "requirements": {
+      "graphics": null,
+      "dotnet": false,
+      "notes": ["a .NET Framework screen capture and upload tool"]
+    },
+    "variants": [
+      {
+        "wine_build": "staging",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": false,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [
+          {"verb": "dotnet48", "reason": "ShareX is a .NET 4.8 application", "optional": false},
+          {"verb": "gdiplus", "reason": "its editor renders images through GDI+", "optional": false}
+        ],
+        "rationale": "Wine staging with .NET 4.8 and GDI+"
+      },
+      {
+        "wine_build": "stable",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": false,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [
+          {"verb": "dotnet48", "reason": "ShareX is a .NET 4.8 application", "optional": false},
+          {"verb": "gdiplus", "reason": "its editor renders images through GDI+", "optional": false}
+        ],
+        "rationale": "Wine stable with the same runtime stack"
+      }
+    ],
+    "source": "bundled",
+    "installer_args": ["/SILENT"],
+    "main_exe_hint": "Program Files/ShareX/ShareX.exe",
+    "notes": "Screen capture under X11 needs $WINEPREFIX access to the display; under Wayland capture is unreliable.",
+    "updated_at": "2026-08-15T00:00:00Z"
+  },
+  {
+    "id": "winmerge",
+    "name": "WinMerge",
+    "version": "2.16.x",
+    "hashes": [],
+    "arch": "x86_64",
+    "requirements": {
+      "graphics": null,
+      "dotnet": false,
+      "notes": ["a Win32 diff and merge tool"]
+    },
+    "variants": [
+      {
+        "wine_build": "stable",
+        "arch": "x86_64",
+        "windows_version": "win10",
+        "dxvk": false,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [
+          {"verb": "mfc42", "reason": "WinMerge links against the MFC 4.2 runtime", "optional": true},
+          {"verb": "riched20", "reason": "its diff editor is a rich-edit control", "optional": false}
+        ],
+        "rationale": "Wine stable with the rich-edit control WinMerge embeds"
+      }
+    ],
+    "source": "bundled",
+    "installer_args": ["/S"],
+    "main_exe_hint": "Program Files/WinMerge/WinMergeU.exe",
+    "notes": "Wine maps Z: to your filesystem root, so you can compare files on your real drive from inside the prefix.",
+    "updated_at": "2026-08-15T00:00:00Z"
+  },
+  {
+    "id": "old-winxp-game",
+    "name": "Legacy Windows XP era game",
+    "version": "2001-2006",
+    "hashes": [],
+    "arch": "x86",
+    "requirements": {
+      "graphics": "d3d9",
+      "dotnet": false,
+      "notes": [
+        "a generic recipe for a 32-bit Direct3D 9 game from the Windows XP era",
+        "match it by renaming a copy of the installer to 'old-winxp-game.exe', or add its digest with `windrop profiles import`"
+      ]
+    },
+    "variants": [
+      {
+        "wine_build": "stable",
+        "arch": "x86",
+        "windows_version": "winxp",
+        "dxvk": true,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [
+          {"verb": "d3dx9", "reason": "the game links against the DirectX 9 helper libraries", "optional": false},
+          {"verb": "vcrun2005", "reason": "games of this era shipped the VC++ 2005 runtime", "optional": true}
+        ],
+        "rationale": "32-bit prefix reporting Windows XP, with DXVK for Direct3D 9"
+      },
+      {
+        "wine_build": "staging",
+        "arch": "x86",
+        "windows_version": "winxp",
+        "dxvk": true,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [
+          {"verb": "d3dx9", "reason": "the game links against the DirectX 9 helper libraries", "optional": false},
+          {"verb": "vcrun2005", "reason": "games of this era shipped the VC++ 2005 runtime", "optional": true}
+        ],
+        "rationale": "Wine staging for games that need newer patches"
+      },
+      {
+        "wine_build": "stable",
+        "arch": "x86",
+        "windows_version": "winxp",
+        "dxvk": false,
+        "vkd3d_proton": false,
+        "dll_overrides": [],
+        "env": [],
+        "dependencies": [{"verb": "d3dx9", "reason": "the game links against the DirectX 9 helper libraries", "optional": false}],
+        "rationale": "Wine's own Direct3D 9, which older games sometimes prefer"
+      }
+    ],
+    "source": "bundled",
+    "installer_args": [],
+    "main_exe_hint": null,
+    "notes": "A starting point rather than a recipe for a specific title: three environments covering the three things that usually go wrong with games from this era.",
+    "updated_at": "2026-08-15T00:00:00Z"
+  }
+]

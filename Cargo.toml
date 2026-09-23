@@ -1,0 +1,33 @@
+[workspace]
+resolver = "2"
+members = ["crates/windrop-core", "crates/windrop-cli", "crates/windrop-gui"]
+
+[workspace.package]
+version = "0.5.0"
+edition = "2021"
+# The floor is set by the dependencies, not by choice: the idna/ICU stack that
+# `reqwest` pulls in needs 1.88. Declaring it accurately means an old toolchain
+# gets one clear message instead of a wall of resolver errors.
+rust-version = "1.88"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/windrop/windrop"
+authors = ["The WinDrop Contributors"]
+
+[workspace.dependencies]
+anyhow = "1"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+goblin = "0.10"
+rusqlite = { version = "0.37", features = ["bundled"] }
+sha2 = "0.10"
+hex = "0.4"
+clap = { version = "4", features = ["derive"] }
+walkdir = "2"
+tar = "0.4"
+flate2 = "1"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+tempfile = "3"
+libc = "0.2"

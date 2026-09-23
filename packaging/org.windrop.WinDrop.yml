@@ -1,0 +1,112 @@
+# Flatpak manifest for WinDrop.
+#
+# Build with:
+#
+#   flatpak-builder --user --install --force-clean build packaging/org.windrop.WinDrop.yml
+#
+# Wine comes from the WineHQ base rather than being built here: a Wine build
+# inside Flatpak takes the better part of an hour, needs the i386 compat
+# extensions, and would then have to be kept in step with upstream Wine by hand.
+# The base also brings winetricks, which is what most applications that need a
+# runtime end up using, and the Gecko and Mono extensions, which Wine asks for
+# the first time a prefix is created — and which cannot be downloaded from inside
+# a sandbox, so the `inherit-extensions` below matter.
+#
+# One consequence is worth knowing about: bubblewrap cannot be nested inside
+# Flatpak (user namespaces are unavailable), so WinDrop detects the Flatpak
+# sandbox and skips its own isolation layer instead of failing. Flatpak's own
+# sandbox is doing that job at that point; `windrop doctor` says so explicitly.
+
+app-id: org.windrop.WinDrop
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+base: org.winehq.Wine
+base-version: stable-25.08
+command: windrop-gui
+
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --device=dri
+  # Installers fetch their own payloads, and the compatibility registry is a
+  # network service. Core operation works offline, but these are not optional in
+  # practice.
+  - --share=network
+  # Wine needs both 32- and 64-bit userspace: half of the installers in the wild
+  # are still 32-bit.
+  - --allow=multiarch
+  # Wine creates and inspects processes in ways Flatpak's default seccomp filter
+  # blocks outright.
+  - --allow=devel
+  - --env=WINEDLLPATH=/app/lib/wine
+  # Where WinDrop keeps everything it creates. Redirecting it into the app's own
+  # data directory is the whole point: nothing escapes into the real home.
+  - --filesystem=xdg-data/windrop:create
+  - --filesystem=xdg-config/windrop:create
+  # Menu entries for installed programs. Flatpak does not export launchers
+  # created at runtime, so the file has to be written where the *host* picks it
+  # up — HOME is not remapped inside the sandbox, only the XDG directories are.
+  # (The DynamicLauncher portal is the future-proof route; it is not implemented
+  # yet, and this is the mechanism that works today.)
+  - --filesystem=~/.local/share/applications:create
+  - --filesystem=~/.local/share/icons:create
+
+inherit-extensions:
+  - org.winehq.Wine.gecko
+  - org.winehq.Wine.mono
+
+# 32-bit graphics drivers, as the Wine base expects.
+add-extensions:
+  org.freedesktop.Platform.Compat.i386:
+    directory: lib/i386-linux-gnu
+    version: '25.08'
+  org.freedesktop.Platform.GL32:
+    directory: lib/i386-linux-gnu/GL
+    version: '1.4'
+    versions: '25.08;25.08-extra;1.4'
+    subdirectories: true
+    no-autodownload: true
+    autodelete: false
+    download-if: active-gl-driver
+    enable-if: active-gl-driver
+
+cleanup:
+  - /include
+  - /lib/pkgconfig
+  - /share/doc
+  - /share/gtk-doc
+  - /share/man
+  - '*.a'
+  - '*.la'
+
+modules:
+  - name: windrop
+    buildsystem: simple
+    build-options:
+      # Cargo needs to reach crates.io on a first build. A Flathub submission must
+      # instead vendor its dependencies: run
+      #
+      #   python3 flatpak-cargo-generator.py Cargo.lock -o packaging/cargo-sources.json
+      #
+      # add that file to `sources` below, and drop this network grant.
+      build-args:
+        - --share=network
+      env:
+        CARGO_HOME: /run/build/windrop/cargo
+    build-commands:
+      - cargo build --release --locked
+      - install -Dm755 target/release/windrop /app/bin/windrop
+      - install -Dm755 target/release/windrop-gui /app/bin/windrop-gui
+      - install -Dm644 data/org.windrop.WinDrop.desktop
+        /app/share/applications/org.windrop.WinDrop.desktop
+      - install -Dm644 data/org.windrop.WinDrop.metainfo.xml
+        /app/share/metainfo/org.windrop.WinDrop.metainfo.xml
+      - install -Dm644 data/icons/hicolor/scalable/apps/windrop.svg
+        /app/share/icons/hicolor/scalable/apps/windrop.svg
+      - install -Dm644 registry/profiles.json /app/share/windrop/profiles.json
+    sources:
+      - type: dir
+        path: ..

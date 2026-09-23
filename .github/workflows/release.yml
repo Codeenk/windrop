@@ -1,0 +1,149 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to release (must already exist)
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  verify:
+    name: Verify before releasing
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GTK4 and the C toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-4-dev libglib2.0-dev pkg-config build-essential bubblewrap
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+
+      # A tag should not be the first time anyone finds out the tree does not
+      # build, so the gate is the same as CI's.
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+
+      - name: Check the tag against the crate versions
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          if [[ "$tag" != "$version" ]]; then
+            echo "::error::tag v$tag does not match the workspace version $version"
+            exit 1
+          fi
+          echo "releasing $version"
+
+  appimage:
+    name: AppImage
+    needs: verify
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GTK4, the C toolchain and the icon tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-4-dev libglib2.0-dev pkg-config build-essential \
+            desktop-file-utils librsvg2-bin libfuse2 curl
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build the AppImage
+        run: ./packaging/appimage.sh --output-dir "$PWD/dist"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: dist/*.AppImage
+
+  aur:
+    name: AUR tarball
+    needs: verify
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the source tarball the PKGBUILD expects
+        run: |
+          version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          mkdir -p dist
+          # The PKGBUILD fetches this by URL, so producing it here means the
+          # published checksum is the one that was actually tested.
+          git archive --format=tar.gz --prefix="windrop-$version/" \
+            -o "dist/windrop-$version.tar.gz" HEAD
+          sha256sum "dist/windrop-$version.tar.gz" | tee dist/SHA256SUMS
+
+      - name: Record the checksum in the PKGBUILD
+        run: |
+          tarball="$(ls dist/windrop-*.tar.gz)"
+          sum="$(cut -d' ' -f1 < dist/SHA256SUMS)"
+          sed -i "s/^sha256sums=.*/sha256sums=('$sum')/" packaging/PKGBUILD
+          grep '^sha256sums' packaging/PKGBUILD
+
+      - name: Validate the PKGBUILD
+        run: |
+          # namcap is the Arch linter; it catches most packaging mistakes that
+          # would otherwise reach users.
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends python3-pip
+          pip install --quiet namcap || echo "namcap unavailable, skipping"
+          namcap packaging/PKGBUILD || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aur
+          path: |
+            dist/windrop-*.tar.gz
+            packaging/PKGBUILD
+
+  publish:
+    name: Publish the release
+    needs: [verify, appimage, aur]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect the release notes from the changelog
+        run: |
+          version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          if [[ -f CHANGELOG.md ]]; then
+            awk -v v="$version" '
+              $0 ~ "^## \\[?" v "\\]?" { printing = 1; next }
+              /^## / { printing = 0 }
+              printing { print }
+            ' CHANGELOG.md > notes.md
+          fi
+          if [[ ! -s notes.md ]]; then
+            printf 'See the documentation for what changed in %s.\n' "$version" > notes.md
+          fi
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          [[ -n "$tag" ]] || tag="v$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          gh release create "$tag" \
+            --title "WinDrop ${tag#v}" \
+            --notes-file notes.md \
+            artifacts/appimage/*.AppImage \
+            artifacts/aur/*

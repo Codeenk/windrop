@@ -1,0 +1,24 @@
+[package]
+name = "windrop-gui"
+description = "GTK4 desktop front-end for WinDrop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "windrop-gui"
+path = "src/main.rs"
+
+[dependencies]
+windrop-core = { path = "../windrop-core" }
+# For the one line the window writes to the log at startup: which data directory
+# and which configuration file it actually resolved, which is the first thing
+# worth knowing when someone reports that their applications disappeared.
+tracing.workspace = true
+# The toolkit (GTK4 4.12 and later; the window uses FileDialog, which needs
+# 4.10, and the older API for everything else). glib and gio arrive through this
+# dependency, so they are not listed separately.
+gtk = { package = "gtk4", version = "0.10", features = ["v4_12"] }

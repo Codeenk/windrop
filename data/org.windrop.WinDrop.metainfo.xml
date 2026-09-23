@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.windrop.WinDrop</id>
+
+  <name>WinDrop</name>
+  <summary>Run Windows programs in their own private environment</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <description>
+    <p>
+      WinDrop makes a Windows program behave like a Linux application. Drop an
+      .exe or .msi onto its window and it works out what the program needs, builds
+      an environment for it, runs the installer, and adds the result to your menu.
+    </p>
+    <p>
+      Each program gets its own environment, with its own Wine prefix and its own
+      copy of any Windows runtime it depends on. Nothing is installed system-wide,
+      WinDrop never asks for root, and removing a program removes everything it
+      created — no leftovers in your home directory, in Wine's shared prefix, or
+      in your registry.
+    </p>
+    <p>
+      Graphics are translated through DXVK and VKD3D-Proton where they help, and
+      programs that need an older version of Windows can be told to expect one.
+      Where a program needs particular attention, WinDrop tries a series of
+      environments and remembers the one that worked.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">org.windrop.WinDrop.desktop</launchable>
+
+  <url type="homepage">https://github.com/windrop/windrop</url>
+  <url type="bugtracker">https://github.com/windrop/windrop/issues</url>
+  <url type="vcs-browser">https://github.com/windrop/windrop</url>
+
+  <developer id="org.windrop">
+    <name>The WinDrop Contributors</name>
+  </developer>
+
+  <categories>
+    <category>Utility</category>
+  </categories>
+
+  <keywords>
+    <keyword>Windows</keyword>
+    <keyword>Wine</keyword>
+    <keyword>exe</keyword>
+    <keyword>compatibility</keyword>
+  </keywords>
+
+  <provides>
+    <binary>windrop</binary>
+    <binary>windrop-gui</binary>
+    <mediatype>application/x-ms-dos-executable</mediatype>
+    <mediatype>application/x-msi</mediatype>
+  </provides>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+
+  <!--
+    Screenshots belong here, and a submission to Flathub is rejected without at
+    least one. They are left out rather than pointed at files that do not exist:
+    a broken image is worse than no image. See CONTRIBUTING.md.
+  -->
+
+  <releases>
+    <release version="0.5.0" date="2026-09-23">
+      <description>
+        <p>First release.</p>
+        <ul>
+          <li>Drag-and-drop installation of .exe, .msi and .bat files.</li>
+          <li>Per-application Wine prefixes, with shared runtimes kept separately.</li>
+          <li>Automatic profile resolution, with a fallback chain that learns what worked.</li>
+          <li>DXVK and VKD3D-Proton translation layers, downloaded on demand.</li>
+          <li>Bubblewrap isolation, so a program sees its own prefix and nothing else.</li>
+          <li>Menu entries and icons, with one-click launch and removal.</li>
+          <li>A complete command line, including JSON output for scripting.</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+
+  <content_rating type="oars-1.1"/>
+
+  <recommends>
+    <control>touch</control>
+  </recommends>
+</component>

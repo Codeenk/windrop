@@ -1,0 +1,28 @@
+# Build output. `git archive` is what produces the release tarball, so this
+# matters for more than tidiness: without it the tarball would carry the whole
+# target directory.
+/target
+/dist
+
+# Release artefacts and packaging leftovers
+*.AppImage
+*.flatpak
+*.pkg.tar.*
+# Arch's makepkg builds inside pkg/ and unpacks sources into src/ — at the
+# *package* root. These must stay unanchored so they never match a crate's
+# real src/ directory, which would exclude the entire codebase from git.
+/pkg/
+/src/
+/app/
+*.orig
+*.rej
+
+# Editors and tools
+.idea/
+.vscode/
+*.swp
+.cache/
+compile_commands.json
+
+# OS cruft
+.DS_Store

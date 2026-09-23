@@ -1,0 +1,18 @@
+[Desktop Entry]
+Type=Application
+Name=WinDrop
+GenericName=Windows application manager
+Comment=Run Windows programs in their own private environment
+Exec=windrop-gui %F
+TryExec=windrop-gui
+Icon=windrop
+Terminal=false
+# One main category only: with two, the entry appears twice in the menu.
+Categories=Utility;
+Keywords=windows;wine;exe;msi;compatibility;prefix;
+StartupNotify=true
+StartupWMClass=org.windrop.WinDrop
+# Offering WinDrop as a handler for Windows files is deliberate: it makes
+# "Open with" work from a file manager. It is *not* registered as the default
+# handler, which would hijack double-clicking installers for everyone.
+MimeType=application/x-ms-dos-executable;application/x-msi;application/x-msdownload;

@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/windrop/windrop/blob/main/README.md
+    about: Installing WinDrop, what it needs, and what it deliberately does not do.
+  - name: The profile format
+    url: https://github.com/windrop/windrop/blob/main/docs/profile-format.md
+    about: How to write a recipe for a program you care about.
+  - name: Contributing
+    url: https://github.com/windrop/windrop/blob/main/CONTRIBUTING.md
+    about: Building, testing without Wine, and how to submit a profile.

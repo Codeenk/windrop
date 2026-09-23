@@ -1,0 +1,175 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Formatting and lints run once, on the fastest image, rather than per-target:
+  # a style problem is the same problem everywhere.
+  lint:
+    name: Format and lints
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GTK4 and the C toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-4-dev libglib2.0-dev pkg-config build-essential
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+  test:
+    name: Tests (${{ matrix.name }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Arch is what WinDrop is built for and packaged on; a failure here is
+          # a release blocker.
+          - name: Arch
+            container: archlinux:base-devel
+          # A second, unrelated distribution, so the code is not accidentally
+          # tied to Arch's paths, package names or tool versions.
+          - name: Ubuntu
+            container: ''
+    container: ${{ matrix.container }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (Arch)
+        if: matrix.name == 'Arch'
+        run: |
+          pacman -Syu --noconfirm --needed \
+            gtk4 glib2 pkgconf sqlite bubblewrap rust git desktop-file-utils
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.name == 'Ubuntu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-4-dev libglib2.0-dev pkg-config build-essential \
+            bubblewrap desktop-file-utils
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --workspace --locked --all-targets
+
+      # The suite fabricates its own Windows executables and drives the whole
+      # pipeline against a mock Wine, so it needs neither Wine nor a display —
+      # which is the only reason it can run here at all.
+      - name: Test
+        run: cargo test --workspace --locked
+
+      - name: Install from the build, then smoke-test the command line
+        run: |
+          install -Dm755 target/debug/windrop /tmp/stage/bin/windrop
+          install -Dm755 target/debug/windrop-gui /tmp/stage/bin/windrop-gui
+          export PATH="/tmp/stage/bin:$PATH"
+          export WINDROP_DATA_DIR="$(mktemp -d)/windrop"
+          windrop --version
+          windrop config keys >/dev/null
+          windrop profiles seed
+          windrop profiles list
+          windrop profiles export /tmp/exported.json
+          windrop profiles verify /tmp/exported.json
+          # `doctor` reports what a machine is missing and exits non-zero to say
+          # so; on CI Wine is absent, so that is the expected outcome. The report
+          # itself must still be printed, and still be valid JSON — that is what
+          # this checks.
+          windrop doctor --json > /tmp/doctor.json || true
+          python3 -c "import json;json.load(open('/tmp/doctor.json'))"
+
+  profiles:
+    name: Validate compatibility profiles
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GTK4 and the C toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-4-dev libglib2.0-dev pkg-config build-essential
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # A profile is a recipe that runs someone else's installer on someone
+      # else's machine: a bad one wastes their time in the least pleasant way.
+      # Validating every submitted file with the same code path the application
+      # uses is the point — a second implementation could disagree.
+      - name: Validate every profile in the tree
+        run: |
+          cargo build --locked -p windrop-cli
+          mkdir -p /tmp/profiles
+          status=0
+          check() {
+            echo "::group::$1"
+            if ! target/debug/windrop --data-dir /tmp/profiles profiles verify "$1"; then
+              echo "::error file=$1::this profile is not valid"
+              status=1
+            fi
+            echo "::endgroup::"
+          }
+          for file in registry/profiles.json registry/submitted/*.json; do
+            [[ -e "$file" ]] || continue
+            check "$file"
+          done
+          exit $status
+
+      - name: Check the bundled recipes still parse and are usable
+        run: |
+          export WINDROP_DATA_DIR="$(mktemp -d)/windrop"
+          target/debug/windrop profiles seed
+          target/debug/windrop profiles list
+
+  flatpak:
+    name: Flatpak build
+    # Not on every push: a Flatpak build downloads the GNOME SDK, the WineHQ
+    # base and the whole i386 compat extension set, which is minutes of work for
+    # a target that is not the primary one.
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: flathub-infra/flatpak-github-actions/flatpak-builder@master
+        with:
+          bundle: windrop.flatpak
+          manifest-path: packaging/org.windrop.WinDrop.yml
+          cache-key: flatpak-builder-${{ github.sha }}
+          # The manifest builds with network access rather than vendored crate
+          # sources; see the comment in the manifest for making it Flathub-ready.
+          build-args: --share=network
