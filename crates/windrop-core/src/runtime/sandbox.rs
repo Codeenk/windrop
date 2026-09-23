@@ -35,18 +35,6 @@ pub enum SandboxAvailability {
 }
 
 impl SandboxAvailability {
-    /// Replace the reason on an unavailable result.
-    ///
-    /// Used to distinguish "not installed" from "installed but the kernel
-    /// forbids namespaces": the advice is entirely different, and only probing
-    /// the binary tells them apart.
-    pub(crate) fn note_installed_reason(mut self, reason: String) -> Self {
-        if let SandboxAvailability::Unavailable(current) = &mut self {
-            *current = reason;
-        }
-        self
-    }
-
     pub fn is_available(&self) -> bool {
         matches!(self, SandboxAvailability::Available(_))
     }
@@ -82,18 +70,31 @@ pub fn inside_flatpak() -> bool {
 
 /// Look for bubblewrap, honouring the requested mode.
 pub fn availability(mode: SandboxMode) -> SandboxAvailability {
+    // Decisions that need no probe come first, so a switched-off sandbox or a
+    // Flatpak build is never described by what is installed on the host.
+    match mode {
+        SandboxMode::Off => {
+            return SandboxAvailability::Unavailable(
+                "sandboxing is switched off in settings".into(),
+            )
+        }
+        SandboxMode::Strict if inside_flatpak() => {
+            return SandboxAvailability::Unavailable(
+                "this build runs inside Flatpak, which already isolates every application".into(),
+            )
+        }
+        SandboxMode::Strict => {}
+    }
     match which("bwrap") {
-        Some(path) if bubblewrap_works(&path) => {
-            availability_with(mode, inside_flatpak(), Some(path))
-        }
-        Some(path) => {
-            availability_with(mode, inside_flatpak(), None).note_installed_reason(format!(
-                "bubblewrap is installed at {} but this kernel forbids user namespaces, \
+        Some(path) if bubblewrap_works(&path) => SandboxAvailability::Available(path),
+        Some(path) => SandboxAvailability::Unavailable(format!(
+            "bubblewrap is installed at {} but this kernel forbids user namespaces, \
              which bubblewrap needs",
-                path.display()
-            ))
-        }
-        None => availability_with(mode, inside_flatpak(), None),
+            path.display()
+        )),
+        None => SandboxAvailability::Unavailable(
+            "bubblewrap is not installed (sudo pacman -S bubblewrap)".into(),
+        ),
     }
 }
 
@@ -585,12 +586,23 @@ mod tests {
 
     #[test]
     fn availability_finds_bubblewrap_or_explains_how_to_get_it() {
+        // The live environment varies: CI containers ship bubblewrap but forbid
+        // namespaces, desktop boxes have it working, bare images lack it.
+        // Whatever is true here, the report must name the actual state.
         let status = availability(SandboxMode::Strict);
-        match status {
-            SandboxAvailability::Available(path) => {
-                assert!(path.to_string_lossy().contains("bwrap"))
+        match which("bwrap") {
+            None => {
+                assert!(!status.is_available());
+                assert!(status.reason().unwrap().contains("pacman"));
             }
-            SandboxAvailability::Unavailable(reason) => assert!(reason.contains("pacman")),
+            Some(bwrap) if bubblewrap_works(&bwrap) => {
+                assert_eq!(status.path(), Some(bwrap.as_path()));
+            }
+            Some(_) => {
+                assert!(!status.is_available());
+                let reason = status.reason().unwrap();
+                assert!(reason.contains("namespaces"), "{reason}");
+            }
         }
     }
 
