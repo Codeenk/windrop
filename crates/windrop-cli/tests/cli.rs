@@ -537,8 +537,16 @@ fn install_launch_and_remove_work_end_to_end() {
         .expect("the recorded command must run");
     assert!(
         launched.status.success(),
-        "the menu entry's command failed: {exec}\n{}",
-        String::from_utf8_lossy(&launched.stderr)
+        "the menu entry's command failed: {exec}\nstderr:\n{}\nlaunch log:\n{}",
+        String::from_utf8_lossy(&launched.stderr),
+        std::fs::read_to_string(
+            sandbox
+                .data
+                .join("apps")
+                .join(MOCK_APP_ID)
+                .join("launch.log"),
+        )
+        .unwrap_or_else(|_| "(none)".to_string())
     );
     let trace = sandbox.wait_for_trace(
         r"launched C:\Program Files\Notepad++\notepad++.exe",
@@ -848,7 +856,26 @@ fn logs_are_kept_per_application() {
         "install",
         installer.to_str().unwrap(),
     ]);
-    sandbox.stdout(&["launch", MOCK_APP_ID, "--wait"]);
+    // A launch failure is exactly what this test exists to diagnose, so its
+    // output — including the log, which holds the sandbox's own error — is
+    // printed rather than asserted away.
+    let launched = sandbox.run(&["launch", MOCK_APP_ID, "--wait"]);
+    if !launched.status.success() {
+        panic!(
+            "launch --wait failed: {:?}\nstdout:\n{}\nstderr:\n{}\nlaunch log:\n{}",
+            launched.status.code(),
+            String::from_utf8_lossy(&launched.stdout),
+            String::from_utf8_lossy(&launched.stderr),
+            std::fs::read_to_string(
+                sandbox
+                    .data
+                    .join("apps")
+                    .join(MOCK_APP_ID)
+                    .join("launch.log"),
+            )
+            .unwrap_or_else(|_| "(none)".to_string())
+        );
+    }
 
     // The log is found by id and by display name, because a menu entry shows
     // the name.
