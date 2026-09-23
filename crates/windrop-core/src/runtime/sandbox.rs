@@ -35,6 +35,18 @@ pub enum SandboxAvailability {
 }
 
 impl SandboxAvailability {
+    /// Replace the reason on an unavailable result.
+    ///
+    /// Used to distinguish "not installed" from "installed but the kernel
+    /// forbids namespaces": the advice is entirely different, and only probing
+    /// the binary tells them apart.
+    pub(crate) fn note_installed_reason(mut self, reason: String) -> Self {
+        if let SandboxAvailability::Unavailable(current) = &mut self {
+            *current = reason;
+        }
+        self
+    }
+
     pub fn is_available(&self) -> bool {
         matches!(self, SandboxAvailability::Available(_))
     }
@@ -70,7 +82,41 @@ pub fn inside_flatpak() -> bool {
 
 /// Look for bubblewrap, honouring the requested mode.
 pub fn availability(mode: SandboxMode) -> SandboxAvailability {
-    availability_with(mode, inside_flatpak(), which("bwrap"))
+    match which("bwrap") {
+        Some(path) if bubblewrap_works(&path) => {
+            availability_with(mode, inside_flatpak(), Some(path))
+        }
+        Some(path) => {
+            availability_with(mode, inside_flatpak(), None).note_installed_reason(format!(
+                "bubblewrap is installed at {} but this kernel forbids user namespaces, \
+             which bubblewrap needs",
+                path.display()
+            ))
+        }
+        None => availability_with(mode, inside_flatpak(), None),
+    }
+}
+
+/// Can this bubblewrap actually start a sandbox?
+///
+/// Finding the binary is not the same as being able to use it: bubblewrap needs
+/// unprivileged user namespaces, and hardened kernels (and Docker containers,
+/// CI runners among them) disable them. Then every launch would die with
+/// `setting up uid map: Permission denied` — a message the user should never
+/// have to translate. One cheap probe, run once, turns that into an honest
+/// report from the doctor and a clear log line instead.
+pub fn bubblewrap_works(bwrap: &Path) -> bool {
+    use std::process::{Command, Stdio};
+    // An empty namespace that runs `true` costs about a millisecond. It touches
+    // nothing, so probing is safe in any environment.
+    Command::new(bwrap)
+        .args(["--ro-bind", "/", "/", "--", "true"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
 }
 
 /// The decision, with its inputs passed in so it can be tested anywhere.
@@ -593,5 +639,26 @@ mod tests {
         assert!(rendered.starts_with("/usr/bin/bwrap"));
         assert!(rendered.contains("--die-with-parent"));
         assert!(rendered.contains("WINEPREFIX="));
+    }
+
+    #[test]
+    fn the_probe_rejects_a_missing_binary_and_accepts_a_working_one() {
+        assert!(!bubblewrap_works(Path::new("/nonexistent/bwrap")));
+        // Where bubblewrap exists and namespaces are usable, the probe must
+        // agree — otherwise availability() would report a working sandbox as
+        // missing. Skipped, not failed, where the kernel forbids namespaces:
+        // that is the environment the probe exists to detect.
+        if which("bwrap").is_some() && user_namespaces_usable() {
+            assert!(bubblewrap_works(which("bwrap").unwrap().as_path()));
+        }
+    }
+
+    /// Whether this kernel allows unprivileged user namespaces at all.
+    fn user_namespaces_usable() -> bool {
+        std::process::Command::new("unshare")
+            .args(["--user", "true"])
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
     }
 }

@@ -272,7 +272,15 @@ impl Diagnostics {
         }
         match &self.sandbox {
             SandboxAvailability::Unavailable(reason) => {
-                if reason.contains("bubblewrap") {
+                if reason.contains("bubblewrap is installed") {
+                    // The binary is there but the kernel refuses namespaces —
+                    // installing it again will not help, so say what will.
+                    Some(
+                        "bubblewrap is installed but this kernel forbids user namespaces, so \
+                         applications run without a sandbox."
+                            .to_string(),
+                    )
+                } else if reason.contains("bubblewrap") {
                     Some(
                         "bubblewrap is missing, so applications run without a sandbox.".to_string(),
                     )
