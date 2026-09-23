@@ -1,12 +1,14 @@
 //! The dependency doctor.
 //!
-//! WinDrop deliberately does not install system packages. What it does instead
-//! is say precisely what is missing and what to type, once, in one place. This
-//! module produces that list together with a host report.
+//! WinDrop checks what is missing and either installs it in one go (see
+//! [`crate::setup`]) or says precisely what to type, once, in one place. This
+//! module produces the diagnosis together with a host report.
 //!
-//! Nothing here changes the system and nothing here fails: a diagnostic run on a
-//! machine with no Wine, no winetricks and no bubblewrap must still return a
-//! complete, useful [`Diagnostics`].
+//! Nothing in a bare diagnostic run changes the system and nothing here fails:
+//! a diagnostic run on a machine with no Wine, no winetricks and no bubblewrap
+//! must still return a complete, useful [`Diagnostics`]. Installation only
+//! happens when the user explicitly starts it, from the setup pane or from
+//! `windrop doctor --install`.
 
 use std::path::{Path, PathBuf};
 
@@ -224,7 +226,9 @@ impl Diagnostics {
     /// A single install command for everything that is missing.
     ///
     /// One command is far more useful than a list of five: the user can paste
-    /// it and be done.
+    /// it and be done. The command matches the distribution's package manager;
+    /// where the distribution is unknown the Arch package names are given so
+    /// the user can map them.
     pub fn setup_command(&self) -> Option<String> {
         let packages: Vec<String> = self
             .missing(Necessity::Optional)
@@ -243,13 +247,20 @@ impl Diagnostics {
         if self.host.is_arch_based() {
             Some(format!("sudo pacman -S --needed {}", unique.join(" ")))
         } else {
-            // Give the package names anyway: they are the Arch names, and any
-            // user can map them to their distribution.
-            Some(format!(
-                "install: {} (Arch package names; adjust for your distribution)",
-                unique.join(", ")
-            ))
+            match crate::setup::DistroFamily::detect() {
+                crate::setup::DistroFamily::Unknown => Some(format!(
+                    "install: {} (package names as on Arch; adjust for your distribution)",
+                    unique.join(", ")
+                )),
+                family => family.sudo_command(&unique),
+            }
         }
+    }
+
+    /// What the setup pane can offer: the one-click plan, the news that
+    /// nothing is missing, or why one-click installation is unavailable.
+    pub fn setup_offer(&self) -> crate::setup::SetupOffer {
+        crate::setup::SetupOffer::for_diagnostics(self)
     }
 
     /// The most important thing to tell the user, or `None` when all is well.

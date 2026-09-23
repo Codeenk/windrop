@@ -954,7 +954,16 @@ struct DoctorOutput<'a> {
 
 fn cmd_doctor(context: &Context, args: DoctorArgs) -> windrop_core::Result<i32> {
     let ui = context.ui;
-    let diagnostics = Diagnostics::run(&context.paths, &context.config);
+    let mut diagnostics = Diagnostics::run(&context.paths, &context.config);
+
+    if args.install {
+        let code = cmd_doctor_install(context, &diagnostics, args.yes)?;
+        if code != 0 {
+            return Ok(code);
+        }
+        // The machine changed; report on the new state, not the old one.
+        diagnostics = Diagnostics::run(&context.paths, &context.config);
+    }
 
     if ui.json {
         let output = DoctorOutput {
@@ -1035,6 +1044,61 @@ fn cmd_doctor(context: &Context, args: DoctorArgs) -> windrop_core::Result<i32> 
     } else {
         EXIT_NOT_READY
     })
+}
+
+/// Install what the doctor found missing, then return 0 when the re-check is
+/// ready (or the install's own failure otherwise).
+fn cmd_doctor_install(
+    context: &Context,
+    diagnostics: &Diagnostics,
+    yes: bool,
+) -> windrop_core::Result<i32> {
+    use windrop_core::setup::{setup_log_file, SetupOffer};
+
+    let ui = context.ui;
+    let plan = match diagnostics.setup_offer() {
+        SetupOffer::Ready(plan) => plan,
+        SetupOffer::NothingMissing => {
+            ui.out("Everything WinDrop needs is already present.");
+            return Ok(0);
+        }
+        SetupOffer::Unavailable(reason) => {
+            ui.out(&format!("One-click setup is unavailable: {reason}."));
+            if let Some(command) = diagnostics.setup_command() {
+                ui.out(&format!("Run this instead:\n  {command}"));
+            }
+            return Ok(EXIT_NOT_READY);
+        }
+    };
+
+    ui.out(&format!("This will install: {}", plan.packages.join(", ")));
+    ui.out(&format!("Running: {}", plan.display()));
+    if !yes {
+        ui.out("Proceed? [y/N]");
+        let mut answer = String::new();
+        std::io::stdin()
+            .read_line(&mut answer)
+            .map_err(windrop_core::Error::Io)?;
+        if !matches!(answer.trim().to_ascii_lowercase().as_str(), "y" | "yes") {
+            ui.out("Cancelled; nothing was changed.");
+            return Ok(EXIT_NOT_READY);
+        }
+    }
+    let log = setup_log_file(context.paths.data_dir());
+    let ui_lines = ui;
+    match plan.run(&log, &|line| ui_lines.raw(line)) {
+        Ok(()) => {
+            ui.out(&format!("Installed {}.", plan.packages.join(", ")));
+            Ok(0)
+        }
+        Err(error) => {
+            ui.out(&format!(
+                "Setup failed: {error}\nFull log: {}",
+                log.display()
+            ));
+            Ok(1)
+        }
+    }
 }
 
 // ----------------------------------------------------------------- profiles

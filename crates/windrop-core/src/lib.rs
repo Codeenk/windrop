@@ -44,6 +44,7 @@ pub mod paths;
 pub mod process;
 pub mod registry;
 pub mod runtime;
+pub mod setup;
 pub mod text;
 pub mod updater;
 

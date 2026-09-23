@@ -4,6 +4,23 @@ All notable changes are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the versions are
 [semantic](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **First-run setup.** The window now checks Wine and its helpers on every
+  launch — a loading state while the probes run — instead of waiting for you
+  to open Diagnostics. When something is missing, an **Install missing
+  pieces** button installs it all in one go through your distribution's
+  package manager (Arch, Debian/Ubuntu, Fedora and openSUSE; one privilege
+  prompt via `pkexec`), streaming the installer's output into the window and
+  re-checking afterwards. Where one click cannot work (an unknown
+  distribution, Flatpak, no `pkexec`), the banner says why and keeps the
+  copy-paste command.
+- **`windrop doctor --install [--yes]`** does the same from a terminal, and
+  the copy-paste setup command now speaks `apt-get`, `dnf` and `zypper` on
+  those distributions instead of Arch names with an apology.
+
 ## [0.5.0] — 2026-09-23
 
 The first release.

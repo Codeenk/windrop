@@ -241,6 +241,15 @@ pub struct DoctorArgs {
     #[arg(long)]
     pub guide: bool,
 
+    /// Install what is missing with the distribution's package manager,
+    /// asking for privilege once, then check again.
+    #[arg(long)]
+    pub install: bool,
+
+    /// Do not ask for confirmation before installing.
+    #[arg(long)]
+    pub yes: bool,
+
     /// Check the parts of the machine the doctor normally skips.
     #[arg(long)]
     pub thorough: bool,

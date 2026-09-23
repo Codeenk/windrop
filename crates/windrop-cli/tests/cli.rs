@@ -334,6 +334,76 @@ fn the_doctor_reports_readiness_and_exits_accordingly() {
     let _ = no_wine;
 }
 
+#[test]
+fn doctor_install_runs_one_click_setup_through_the_override() {
+    // `WINDROP_SETUP_INSTALLER` replaces the privilege wrapper, so the test
+    // drives a mock "package manager" instead of touching the host.
+    let sandbox = Sandbox::new();
+    let mock = sandbox.root().join("mock-installer");
+    let calls = sandbox.root().join("install-calls.log");
+    std::fs::write(
+        &mock,
+        format!(
+            "#!/bin/sh\nprintf 'mock-install %s\\n' \"$*\" >> \"{}\"\nexit 0\n",
+            calls.display()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&mock, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    let output = sandbox
+        .command()
+        .env("PATH", "/nonexistent-bin")
+        .env("WINDROP_SETUP_INSTALLER", &mock)
+        .args(["doctor", "--install", "--yes"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    // The plan names Wine first, the mock "installs" it, and the re-check
+    // still finds no Wine — so the exit code stays 3 even though the setup
+    // step itself succeeded.
+    assert!(stdout.contains("This will install:"), "{stdout}");
+    assert!(stdout.contains("wine"), "{stdout}");
+    assert!(stdout.contains("Installed"), "{stdout}");
+    assert_eq!(output.status.code(), Some(3));
+
+    let recorded = std::fs::read_to_string(&calls).unwrap();
+    assert!(recorded.contains("mock-install"), "{recorded}");
+    assert!(
+        ["pacman", "apt-get", "dnf", "zypper"]
+            .iter()
+            .any(|manager| recorded.contains(manager)),
+        "a real package manager must be invoked: {recorded}"
+    );
+    assert!(recorded.contains("wine"), "{recorded}");
+}
+
+#[test]
+fn doctor_install_is_a_no_op_when_everything_is_present() {
+    let sandbox = Sandbox::new();
+    // Mock the remaining helpers the doctor looks for; `tar` is real and kept
+    // on $PATH by the sandbox harness.
+    for name in [
+        "cabextract",
+        "bwrap",
+        "wrestool",
+        "icotool",
+        "update-desktop-database",
+    ] {
+        let path = sandbox.bin.join(name);
+        std::fs::write(&path, "#!/bin/sh\nexit 0\n").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let output = sandbox
+        .command()
+        .args(["doctor", "--install", "--yes"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    assert!(stdout.contains("already present"), "{stdout}");
+    assert_eq!(output.status.code(), Some(0));
+}
+
 // ----------------------------------------------------------------- profiles
 
 #[test]

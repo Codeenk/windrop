@@ -67,6 +67,7 @@ pub struct Window {
     banner_detail: gtk::Label,
     banner_command: gtk::Label,
     banner_commands: gtk::Box,
+    install_button: gtk::Button,
     status: Status,
     spinner: gtk::Spinner,
     /// How many operations are in flight; the spinner stops when it reaches zero.
@@ -81,6 +82,9 @@ pub struct Window {
     diagnostics: RefCell<Option<Diagnostics>>,
     /// The open diagnostics pane, if any, so it can update itself.
     diagnostics_view: RefCell<Option<gtk::TextView>>,
+    /// The open setup progress pane, if any, so streamed lines have somewhere
+    /// to go.
+    setup_view: RefCell<Option<gtk::TextView>>,
     /// Updated profiles found by the last check.
     updates: RefCell<Vec<ProfileUpdate>>,
     icon_hint: Option<&'static str>,
@@ -121,7 +125,10 @@ impl Window {
         banner_command.add_css_class("monospace");
         let copy_command = gtk::Button::with_label("Copy the command");
         let recheck = gtk::Button::with_label("Check again");
+        let install_button = gtk::Button::with_label("Install missing pieces");
+        install_button.add_css_class("suggested-action");
         let banner_commands = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        banner_commands.append(&install_button);
         banner_commands.append(&copy_command);
         banner_commands.append(&recheck);
 
@@ -238,6 +245,7 @@ impl Window {
             banner_detail,
             banner_command,
             banner_commands,
+            install_button: install_button.clone(),
             status,
             spinner,
             busy: RefCell::new(0),
@@ -246,6 +254,7 @@ impl Window {
             inspection: RefCell::new(None),
             diagnostics: RefCell::new(None),
             diagnostics_view: RefCell::new(None),
+            setup_view: RefCell::new(None),
             updates: RefCell::new(Vec::new()),
             icon_hint,
         });
@@ -269,6 +278,10 @@ impl Window {
         {
             let this = this.clone();
             recheck.connect_clicked(move |_| this.check_readiness());
+        }
+        {
+            let this = this.clone();
+            install_button.connect_clicked(move |_| this.open_setup_install());
         }
 
         for name in ["settings", "diagnostics", "quit", "check-updates"] {
@@ -302,6 +315,12 @@ impl Window {
             }
             glib::ControlFlow::Continue
         });
+        // The boot check: before anything can be installed, WinDrop verifies
+        // Wine and its helpers are present, showing a loading state while the
+        // probes run. If something is missing, the banner offers to install
+        // it — that is the setup flow, not an error.
+        self.check_readiness();
+        self.ui.task(Task::Refresh);
     }
 
     // ------------------------------------------------------------------- input
@@ -568,6 +587,42 @@ impl Window {
                     view.buffer().set_text(&report);
                 }
                 self.filter_apps_missing_wine(&diagnostics);
+            }
+
+            Message::SetupLine(line) => {
+                if let Some(view) = self.setup_view.borrow().as_ref() {
+                    let buffer = view.buffer();
+                    let mut end = buffer.end_iter();
+                    buffer.insert(&mut end, &format!("{line}\n"));
+                    let mut end = buffer.end_iter();
+                    view.scroll_to_iter(&mut end, 0.0, false, 0.0, 0.0);
+                }
+            }
+
+            Message::SetupFinished(result) => {
+                self.stop_busy();
+                // The dialog stays open with the full log; the outcome is the
+                // last line, and the status line says what happens next.
+                if let Some(view) = self.setup_view.borrow().as_ref() {
+                    let buffer = view.buffer();
+                    let mut end = buffer.end_iter();
+                    match result.as_ref() {
+                        Ok(summary) => buffer.insert(&mut end, &format!("\n{summary}\n")),
+                        Err(text) => buffer.insert(&mut end, &format!("\n{text}\n")),
+                    }
+                    let mut end = buffer.end_iter();
+                    view.scroll_to_iter(&mut end, 0.0, false, 0.0, 0.0);
+                }
+                match *result {
+                    Ok(summary) => {
+                        self.status.success(&summary);
+                        // The install changed the machine; re-check and reload
+                        // rather than trusting the pre-install picture.
+                        self.check_readiness();
+                        self.ui.task(Task::Refresh);
+                    }
+                    Err(text) => self.status.failure(&text),
+                }
             }
 
             Message::Updates(updates) => {
@@ -959,6 +1014,7 @@ impl Window {
         *self.diagnostics.borrow_mut() = Some(diagnostics.clone());
         if !blocking {
             self.banner.set_reveal_child(false);
+            self.install_button.set_visible(false);
             if diagnostics.wine.is_some() {
                 self.status.success("Ready.");
             }
@@ -972,7 +1028,7 @@ impl Window {
                 .as_str(),
         );
         let missing = diagnostics.missing(Necessity::Recommended);
-        self.banner_detail.set_text(&if missing.is_empty() {
+        let mut detail = if missing.is_empty() {
             "Everything else is present.".to_string()
         } else {
             format!(
@@ -983,7 +1039,24 @@ impl Window {
                     .collect::<Vec<_>>()
                     .join(", ")
             )
-        });
+        };
+        // The install button is only there when one click can actually work;
+        // otherwise the detail says why, and the copy-paste command remains.
+        match diagnostics.setup_offer() {
+            windrop_core::setup::SetupOffer::Ready(plan) => {
+                self.install_button.set_visible(true);
+                self.install_button
+                    .set_tooltip_text(Some(&format!("Install {}", plan.packages.join(", "))));
+            }
+            windrop_core::setup::SetupOffer::NothingMissing => {
+                self.install_button.set_visible(false);
+            }
+            windrop_core::setup::SetupOffer::Unavailable(reason) => {
+                self.install_button.set_visible(false);
+                detail.push_str(&format!("\n{reason}."));
+            }
+        }
+        self.banner_detail.set_text(&detail);
         banner_command_visibility(&self.banner_command, &self.banner_commands, diagnostics);
         self.banner.set_reveal_child(true);
         self.status
@@ -995,6 +1068,100 @@ impl Window {
         // present; rebuilding is cheap and keeps Launch buttons honest.
         let _ = diagnostics;
         self.ui.task(Task::Refresh);
+    }
+
+    /// The one-click setup: confirm what will be installed, then stream the
+    /// installer's own output into the dialog while it runs.
+    fn open_setup_install(self: &Rc<Self>) {
+        use windrop_core::setup::SetupOffer;
+
+        let Some(diagnostics) = self.diagnostics.borrow().clone() else {
+            self.status.note("Checking what WinDrop needs…");
+            self.check_readiness();
+            return;
+        };
+        let SetupOffer::Ready(plan) = diagnostics.setup_offer() else {
+            // The button is hidden unless the offer is ready, so this is only
+            // reachable if the machine changed under the open window.
+            self.status
+                .note("Nothing left to install — checking again…");
+            self.check_readiness();
+            return;
+        };
+
+        let heading = gtk::Label::new(Some("Install what WinDrop needs?"));
+        heading.add_css_class("title-2");
+        heading.set_xalign(0.0);
+
+        let body = gtk::Label::new(Some(&format!(
+            "This installs {} with your distribution's package manager. \
+             You will be asked to authorise it once, and nothing else changes.",
+            plan.packages.join(", ")
+        )));
+        body.set_wrap(true);
+        body.set_xalign(0.0);
+        body.add_css_class("dim-label");
+
+        let command = gtk::Label::new(Some(&plan.display()));
+        command.set_xalign(0.0);
+        command.set_wrap(true);
+        command.set_selectable(true);
+        command.add_css_class("monospace");
+
+        let view = gtk::TextView::builder()
+            .editable(false)
+            .cursor_visible(false)
+            .vexpand(true)
+            .build();
+        view.add_css_class("monospace");
+        view.buffer().set_text("Output will appear here…\n");
+
+        let install = gtk::Button::with_label("Install");
+        install.add_css_class("suggested-action");
+        let close = gtk::Button::with_label("Close");
+        let buttons = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        buttons.set_halign(gtk::Align::End);
+        buttons.append(&close);
+        buttons.append(&install);
+
+        let content = gtk::Box::new(gtk::Orientation::Vertical, 8);
+        content.set_margin_top(18);
+        content.set_margin_bottom(18);
+        content.set_margin_start(18);
+        content.set_margin_end(18);
+        content.append(&heading);
+        content.append(&body);
+        content.append(&command);
+        content.append(
+            &gtk::ScrolledWindow::builder()
+                .child(&view)
+                .vexpand(true)
+                .min_content_height(200)
+                .build(),
+        );
+        content.append(&buttons);
+
+        let dialog = self.dialog("Setting up WinDrop", 640, 480, &content);
+        *self.setup_view.borrow_mut() = Some(view);
+        {
+            let this = self.clone();
+            let dialog = dialog.clone();
+            close.connect_clicked(move |_| {
+                *this.setup_view.borrow_mut() = None;
+                dialog.close();
+            });
+        }
+        {
+            let this = self.clone();
+            let install_button = install.clone();
+            install.connect_clicked(move |_| {
+                install_button.set_sensitive(false);
+                this.status.note("Installing what WinDrop needs…");
+                this.start_busy();
+                this.ui.task(Task::SetupInstall);
+            });
+        }
+        dialog.present();
     }
 
     // ----------------------------------------------------------------- settings

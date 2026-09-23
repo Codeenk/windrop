@@ -41,6 +41,10 @@ pub enum Message {
     Doctor(Box<Diagnostics>),
     Inspection(Box<Result<PeInspection, String>>),
     Updates(Vec<ProfileUpdate>),
+    /// One streamed line of the one-click setup run.
+    SetupLine(String),
+    /// The one-click setup finished: what got installed, or why it failed.
+    SetupFinished(Box<Result<String, String>>),
     Log {
         app: String,
         text: String,
@@ -71,7 +75,12 @@ pub enum Task {
     Remove(String),
     Doctor,
     CheckUpdates,
-    ReadLog { app: String, lines: usize },
+    ReadLog {
+        app: String,
+        lines: usize,
+    },
+    /// Install Wine and the missing helpers in one go (see `setup_install`).
+    SetupInstall,
 }
 
 /// A failure phrased the way the interface should show it: the message, and the
@@ -108,6 +117,7 @@ pub fn spawn(tx: Sender<Message>, paths: Paths, config: Config, task: Task) {
                 Task::Doctor => doctor(&tx, &paths, &config),
                 Task::CheckUpdates => check_updates(&tx, &paths, &config, &manager),
                 Task::ReadLog { app, lines } => read_log(&tx, &manager, &app, lines),
+                Task::SetupInstall => setup_install(&tx, &paths, &config),
             }
         })
         .expect("a worker thread");
@@ -226,6 +236,50 @@ fn remove(tx: &Sender<Message>, manager: &ApplicationManager, id: &str) {
 fn doctor(tx: &Sender<Message>, paths: &Paths, config: &Config) {
     // `Diagnostics::run` never fails; it reports what it could not find.
     let _ = tx.send(Message::Doctor(Box::new(Diagnostics::run(paths, config))));
+}
+
+/// Install Wine and every missing helper, streaming progress.
+///
+/// The plan is rebuilt here rather than handed in: the minutes between the
+/// check and the click are exactly when a user might have installed something
+/// by hand, and installing what is already there would be pure noise.
+fn setup_install(tx: &Sender<Message>, paths: &Paths, config: &Config) {
+    use windrop_core::setup::{setup_log_file, SetupOffer};
+
+    let diagnostics = Diagnostics::run(paths, config);
+    let plan = match diagnostics.setup_offer() {
+        SetupOffer::Ready(plan) => plan,
+        SetupOffer::NothingMissing => {
+            let _ = tx.send(Message::SetupFinished(Box::new(Ok(
+                "Everything WinDrop needs is already present.".to_string(),
+            ))));
+            return;
+        }
+        SetupOffer::Unavailable(reason) => {
+            let _ = tx.send(Message::SetupFinished(Box::new(Err(reason))));
+            return;
+        }
+    };
+    let log = setup_log_file(paths.data_dir());
+    let lines = tx.clone();
+    let ran = plan.run(&log, &|line| {
+        let _ = lines.send(Message::SetupLine(line.to_string()));
+    });
+    match ran {
+        Ok(()) => {
+            let _ = tx.send(Message::SetupFinished(Box::new(Ok(format!(
+                "Installed {}. Checking again…",
+                plan.packages.join(", ")
+            )))));
+        }
+        Err(error) => {
+            let _ = tx.send(Message::SetupFinished(Box::new(Err(format!(
+                "{}\n\nFull log: {}",
+                describe(&error),
+                log.display()
+            )))));
+        }
+    }
 }
 
 fn check_updates(

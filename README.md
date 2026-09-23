@@ -80,8 +80,20 @@ build script in `packaging/appimage.sh`. Neither bundles Wine: see
 
 ## What WinDrop needs
 
-WinDrop does not install system packages. It detects what is present and tells
-you exactly what is missing and what to type. Run:
+On first launch WinDrop checks itself — Wine, the runtimes helper, the
+sandbox and the rest — before you can drop anything. If something is missing,
+the window offers to install it all in one click (one privilege prompt, via
+your distribution's package manager), or shows the single command to do it by
+hand. The same check is always available as:
+
+```sh
+windrop doctor            # what is missing, and the command for it
+windrop doctor --install  # install it now, then check again
+```
+
+WinDrop does not install system packages behind your back: the one-click
+setup only ever runs when you press its button (or pass `--install`), and the
+full log lands in the data directory next to every other run.
 
 ```sh
 windrop doctor
