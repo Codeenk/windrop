@@ -654,23 +654,13 @@ mod tests {
     }
 
     #[test]
-    fn the_probe_rejects_a_missing_binary_and_accepts_a_working_one() {
+    fn the_probe_rejects_a_missing_binary() {
         assert!(!bubblewrap_works(Path::new("/nonexistent/bwrap")));
-        // Where bubblewrap exists and namespaces are usable, the probe must
-        // agree — otherwise availability() would report a working sandbox as
-        // missing. Skipped, not failed, where the kernel forbids namespaces:
-        // that is the environment the probe exists to detect.
-        if which("bwrap").is_some() && user_namespaces_usable() {
-            assert!(bubblewrap_works(which("bwrap").unwrap().as_path()));
-        }
-    }
-
-    /// Whether this kernel allows unprivileged user namespaces at all.
-    fn user_namespaces_usable() -> bool {
-        std::process::Command::new("unshare")
-            .args(["--user", "true"])
-            .status()
-            .map(|s| s.success())
-            .unwrap_or(false)
+        // The positive case cannot be asserted here: whether a given host lets
+        // bubblewrap create namespaces is exactly what the probe measures, and
+        // some hardened kernels (Ubuntu 24.04's AppArmor restriction among
+        // them) allow `unshare` while denying unprofiled binaries.
+        // availability_finds_bubblewrap_or_explains_how_to_get_it above
+        // already branches on whatever the probe finds.
     }
 }
